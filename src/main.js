@@ -1,14 +1,17 @@
-const categories = ['All', 'Rare', 'Paradox', 'Gmax']
+const categories = ['All', 'Rare', 'Paradox', 'Gmax', 'Regional']
+const excludedRarePackPokemon = new Set(['Okidogi', 'Fezandipiti', 'Munkidori'])
 const storageKey = 's7-pokemon-catalog'
 const spriteFiles = {
   Rare: 'arceus archaludon articuno azelf blacephalon calyrex celebi cobalion cosmeom cosmog cresselia darkrai deoxys dialga dianie entei fezandipiti giratina glastrier groudon ho_oh hoopa jirachi keldeo koraidon kubfu kyogre kyurem landorus latias latios lugia lunala magearna manaphy marshadow meloetta mesprit mew mewtwo miriadon munkidori necrozma nihilego ogerpon okidogi palkia percharunt phione poipole raikou rayquaza regice regidrago regieleki regigigas regirock registeel reshiram shaymin silvally solgaleo spectrier suicune tapu_bulu tapu_fini tapu_koko tapu_lele terapagos thundurus tornadus type_null uxie victini virizion volcanion xerneas yvetal zacian zamazenta zapdos zarude zekrom zeraora zygarde'.split(' '),
   Paradox: 'brute_bonnet buzzwhole celesteela chi_yu chien_pao enamorus flutter_main genesect gouging_fire great_tusk guzzlord heatran iron_boulder iron_bundle iron_crown iron_hands iron_jugulis iron_leaves iron_moth iron_thorns iron_treads iron_valiant kartana kingambit naganadel pheromosa raging_bolt roaring_moon sandy_shocks scream_tail slither_wing stakataka terrakion ting_lu walking_wake wo_chien xurkitree'.split(' '),
   Gmax: 'alcremie appletun blastiose butterfree centiskorch charizard cinderace coalossal copperajah corviknight duraludon eevee eternatus grimmsnarl gyarados hatterene inteleon lapras machamp melmetal orbeetle pikachu rillaboom sandaconda snorlax toxtricity urshifu venusaur'.split(' '),
+  Regional: ['Alolan Raichu', 'Alolan Ninetales', 'Alolan_Vulpix', 'cursola', 'Galarian Corsola', 'Galarian Ponyta', 'Galarian Rapidash', 'Hisuian Arcanine', 'Hisuian Growlithe', 'Hisuian Lilligant', 'Hisuian Sliggoo', 'Hisuian Zorua', 'Hisuian Zoraork'],
 }
 const starterDetails = {
   'Rare:ogerpon': { name: 'Ogerpon', type: 'Grass', note: 'Legendary mask bearer' },
   'Paradox:iron_valiant': { name: 'Iron Valiant', type: 'Fairy / Fighting', note: 'Area Zero future form' },
   'Gmax:charizard': { name: 'Gigantamax Charizard', type: 'Fire / Flying', note: 'Gmax form' },
+  'Regional:hisuian_zoraork': { name: 'Hisuian Zoroark' },
 }
 
 function titleFromFilename(filename) {
@@ -16,20 +19,21 @@ function titleFromFilename(filename) {
 }
 
 const generatedPokemon = Object.entries(spriteFiles).flatMap(([category, filenames]) => filenames.map((filename) => {
-  const key = `${category}:${filename}`
-  const details = starterDetails[key] || {}
-  return { id: key, name: details.name || titleFromFilename(`${filename}.png`), category, number: '', type: details.type || '', note: details.note || '', sprite: `sprites/${category}/${filename}.png` }
+  const details = starterDetails[`${category}:${filename.toLowerCase().replaceAll(' ', '_')}`] || {}
+  const name = details.name || titleFromFilename(`${filename}.png`)
+  return { id: `${category}:${name.toLowerCase().replaceAll(' ', '_')}`, name, category, number: '', type: details.type || '', note: details.note || '', sprite: `sprites/${category}/${filename}.png` }
 }))
 
 const savedPokemon = JSON.parse(localStorage.getItem(storageKey) || 'null') || []
-const savedByKey = new Map(savedPokemon.filter((entry) => entry.category !== 'Regional').map((entry) => [`${entry.category}:${entry.name.toLowerCase().replaceAll(' ', '_')}`, entry]))
+const savedByKey = new Map(savedPokemon.map((entry) => [`${entry.category}:${entry.name.toLowerCase().replaceAll(' ', '_')}`, entry]))
 const generatedKeys = new Set(generatedPokemon.map((entry) => entry.id))
 let pokemon = [
-  ...generatedPokemon.map((entry) => ({ ...entry, ...(savedByKey.get(entry.id) || {}) , sprite: entry.sprite })),
-  ...savedPokemon.filter((entry) => entry.category !== 'Regional' && !generatedKeys.has(`${entry.category}:${entry.name.toLowerCase().replaceAll(' ', '_')}`)),
+  ...generatedPokemon.map((entry) => ({ ...entry, ...(savedByKey.get(entry.id) || {}), sprite: entry.sprite })),
+  ...savedPokemon.filter((entry) => !generatedKeys.has(`${entry.category}:${entry.name.toLowerCase().replaceAll(' ', '_')}`)),
 ]
 let activeCategory = 'All'
 let searchTerm = ''
+let activePackId = 'rare'
 let editMode = false
 let editingId = null
 const app = document.querySelector('#app')
@@ -37,6 +41,15 @@ const app = document.querySelector('#app')
 function save() {
   localStorage.setItem(storageKey, JSON.stringify(pokemon))
 }
+
+function rarePackPokemon() {
+  return pokemon.filter((entry) => entry.category === 'Rare' && !excludedRarePackPokemon.has(entry.name))
+}
+
+const packs = [
+  { id: 'rare', name: 'Rare Pack', description: 'Includes every Pokemon in the Rare category except Okidogi, Fezandipiti, and Munkidori. New Rare entries are included automatically.', getPokemon: rarePackPokemon },
+  { id: 'regional', name: 'Regional Pack', description: 'Includes the Regional Pokemon with sprites in the catalog. Add more Regional sprites to include them here automatically.', getPokemon: () => pokemon.filter((entry) => entry.category === 'Regional' && entry.sprite) },
+]
 
 function filteredPokemon() {
   return pokemon.filter((entry) => {
@@ -47,7 +60,11 @@ function filteredPokemon() {
 }
 
 function render() {
-  const visiblePokemon = filteredPokemon()
+  const activePack = packs.find((pack) => pack.id === activePackId) || packs[0]
+  const packPokemon = activePack.getPokemon()
+  const visiblePokemon = activeCategory === 'Packs'
+    ? packPokemon.filter((entry) => `${entry.name} ${entry.type} ${entry.note} ${entry.number}`.toLowerCase().includes(searchTerm.toLowerCase()))
+    : filteredPokemon()
   app.innerHTML = `
     <div class="shell">
       <header class="topbar">
@@ -67,12 +84,13 @@ function render() {
           <div class="collection-count"><strong>${pokemon.length}</strong><span>entries<br>tracked</span></div>
         </section>
         <section class="toolbar" aria-label="Catalog controls">
-          <div class="category-tabs">${categories.map((category) => `<button class="tab ${activeCategory === category ? 'selected' : ''}" data-category="${category}" type="button">${category}<span>${category === 'All' ? pokemon.length : pokemon.filter((entry) => entry.category === category).length}</span></button>`).join('')}</div>
-          <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search the catalog" value="${searchTerm.replaceAll('"', '&quot;')}"></label>
+          <div class="category-tabs">${[...categories, 'Packs'].map((category) => `<button class="tab ${activeCategory === category ? 'selected' : ''}" data-category="${category}" type="button">${category}<span>${category === 'All' ? pokemon.length : category === 'Packs' ? packs.length : pokemon.filter((entry) => entry.category === category).length}</span></button>`).join('')}</div>
+          <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="${activeCategory === 'Packs' ? `Search ${activePack.name}` : 'Search the catalog'}" value="${searchTerm.replaceAll('"', '&quot;')}"></label>
         </section>
-        <section class="catalog-heading"><div><p class="eyebrow">Showing ${activeCategory}</p><h2>${visiblePokemon.length} Pokemon</h2></div>${editMode ? '<button class="primary-button" id="new-entry" type="button"><span>+</span> Add Pokemon</button>' : ''}</section>
+        <section class="catalog-heading"><div><p class="eyebrow">${activeCategory === 'Packs' ? 'Bundle contents' : `Showing ${activeCategory}`}</p><h2>${activeCategory === 'Packs' ? activePack.name : `${visiblePokemon.length} Pokemon`}</h2></div>${editMode && activeCategory !== 'Packs' ? '<button class="primary-button" id="new-entry" type="button"><span>+</span> Add Pokemon</button>' : ''}</section>
+        ${activeCategory === 'Packs' ? `<nav class="pack-tabs" aria-label="Choose a pack">${packs.map((pack) => `<button class="tab ${activePackId === pack.id ? 'selected' : ''}" data-pack="${pack.id}" type="button">${pack.name}<span>${pack.getPokemon().length}</span></button>`).join('')}</nav><section class="pack-summary"><p>${activePack.description}</p><span class="pack-count">${packPokemon.length} Pokemon</span></section>` : ''}
         <section class="grid" aria-live="polite">${visiblePokemon.length ? visiblePokemon.map(cardTemplate).join('') : emptyTemplate()}</section>
-        <p class="storage-note">Sprites are loaded automatically from the <code>sprites/Rare</code>, <code>sprites/Paradox</code>, and <code>sprites/Gmax</code> folders.</p>
+        <p class="storage-note">Sprites are loaded from the <code>sprites/Rare</code>, <code>sprites/Paradox</code>, <code>sprites/Gmax</code>, and <code>sprites/Regional</code> folders.</p>
       </main>
       <footer><span>S7 POKEDEX</span><span>Catalog · Owner managed</span></footer>
     </div>
@@ -95,7 +113,8 @@ function formTemplate() {
 }
 
 function bindEvents() {
-  document.querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => { activeCategory = button.dataset.category; render() }))
+  document.querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => { activeCategory = button.dataset.category; searchTerm = ''; render() }))
+  document.querySelectorAll('[data-pack]').forEach((button) => button.addEventListener('click', () => { activePackId = button.dataset.pack; searchTerm = ''; render() }))
   document.querySelector('#search')?.addEventListener('input', (event) => { searchTerm = event.target.value; render(); document.querySelector('#search')?.focus() })
   document.querySelector('#toggle-owner')?.addEventListener('click', () => { editMode = !editMode; editingId = null; render() })
   document.querySelector('#new-entry')?.addEventListener('click', () => { editingId = ''; render() })

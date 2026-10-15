@@ -128,3 +128,7 @@ h2 { color: #f1f1f1; font-size: 30px; text-transform: uppercase; letter-spacing:
 .empty-state { border: 1px solid #3b3d42; border-radius: 4px; background: #191b1f; box-shadow: var(--shadow); }.empty-mark { border-radius: 3px; background: #ff3045; color: #111214; }.empty-state h3 { color: #f1f1f1; }.empty-state p { color: #9b9da1; }
 footer { border-top: 1px solid #303237; color: #777a80; text-transform: uppercase; letter-spacing: .12em; }
 .modal-backdrop { background: rgb(0 0 0 / .72); }.modal { border: 1px solid #55575c; border-radius: 4px; background: #191b1f; box-shadow: 0 25px 70px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 48 69 / .14); }.close-button { background: #292b2f; color: #f1f1f1; border-radius: 3px; }.modal label { color: #c8c9cb; text-transform: uppercase; letter-spacing: .06em; font-size: 10px; }.modal input, .modal select, .modal textarea { border: 1px solid #55575c; border-radius: 3px; background: #111214; color: #f1f1f1; outline-color: #ff3045; }
+.pack-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.pack-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 0 0 22px; padding: 18px 20px; border: 1px solid #3b3d42; border-left: 3px solid #ff3045; border-radius: 4px; background: #191b1f; }
+.pack-summary p { flex: 1 1 360px; margin: 0; color: #a8a9ad; font-size: 13px; line-height: 1.5; }
+.pack-count { color: #ff3045; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
